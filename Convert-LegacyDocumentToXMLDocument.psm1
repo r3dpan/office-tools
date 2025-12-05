@@ -1,6 +1,6 @@
 #Requires -Version 7.4
 
-function Convert-OfficeDocuments {
+function Convert-LegacyDocumentToXMLDocument {
     <#
     .SYNOPSIS
         Converts .doc and .xls to the more modern filetype formats docx and .xlsx
@@ -18,7 +18,7 @@ function Convert-OfficeDocuments {
         Default: Current user's Desktop
 
     .EXAMPLE
-        Convert-OfficeDocuments -path "C:\Documents" -recursive
+        Convert-LegacyDocumentsToXMLDocuments -path "C:\Documents" -recursive
 
     .NOTES
         Requires modern version of Word and/or Excel to be installed
@@ -79,23 +79,32 @@ function Convert-OfficeDocuments {
         # Display progress bar
         Write-Progress -Activity "Converting Office Documents" -Status "Processing: $($sourceFile.Name)" -PercentComplete $percentComplete -CurrentOperation "File $fileIndex of $($filesToConvert.Count)"
 
-        # Reset document
+        # Reset document buffer
         $officeDocument = $null
 
         try {
-            # Convert word documents
-            if ($sourceFile.Extension -eq '.doc') {
-                # Check if file already exists
-                $targetFilePath = $sourceFile.FullName -replace '\.doc$', '.docx'
-                if (Test-Path $targetFilePath) {
-                    Write-Warning "Skipping $($sourceFile.Name) - output already exists"
-                    
-                    $skippedFileCount++
-
-                    # Add log to logfile
-                    Add-Content -Path $logFilePath -Value ("$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'),$($sourceFile.FullName),$targetFilePath,Skipped,File already exists")
+            # Determine target file path
+            switch ($sourceFile.Extension) {
+                '.doc' {
+                    $targetFilePath = $sourceFile.FullName -replace '\.doc$', '.docx'
                 }
-                else {
+                '.xls' {
+                    $targetFilePath = $sourceFile.FullName -replace '\.xls$', '.xlsx'
+                }
+            }
+            
+            # Check if file already exists
+            if (Test-Path $targetFilePath) {
+                Write-Warning "Skipping $($sourceFile.Name) - output already exists"
+                
+                $skippedFileCount++
+
+                # Add log to logfile
+                Add-Content -Path $logFilePath -Value ("$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'),$($sourceFile.FullName),$targetFilePath,Skipped,File already exists")
+            }
+            else {
+                # Convert word documents
+                if ($sourceFile.Extension -eq '.doc') {
                     # Open, convert and save document
                     $officeDocument = $wordApp.Documents.Open($sourceFile.FullName)
                     $officeDocument.SaveAs($targetFilePath, 12)
@@ -106,19 +115,7 @@ function Convert-OfficeDocuments {
                     # Add log to logfile
                     Add-Content -Path $logFilePath -Value ("$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'),$($sourceFile.FullName),$targetFilePath,Success,")
                 }
-            }
-            # Convert excel documents
-            else {
-                # Check if file already exists
-                $targetFilePath = $sourceFile.FullName -replace '\.xls$', '.xlsx'
-                if (Test-Path $targetFilePath) {
-                    Write-Warning "Skipping $($sourceFile.Name) - output already exists"
-
-                    $skippedFileCount++
-
-                    # Add log to logfile
-                    Add-Content -Path $logFilePath -Value ("$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'),$($sourceFile.FullName),$targetFilePath,Skipped,File already exists")
-                }
+                # Convert excel documents
                 else {
                     # Open, convert and save document
                     $officeDocument = $excelApp.Workbooks.Open($sourceFile.FullName)
